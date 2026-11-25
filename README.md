@@ -36,3 +36,5 @@ As always, Claude being a contributor is bc I whip them to make a webpage to rep
 
 Just realised this is more of a diary other than "Author's note" or "dev log" or sth but hey I like this kind of storytelling more.
 Anyways, love y'all if you see or read this!
+
+P.S. as you can see from the name, SRK stands for Shiroko from Blue Archive, I was still into the game at that time, quit playing quite a while after that.
