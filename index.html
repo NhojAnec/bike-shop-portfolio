@@ -1,0 +1,800 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SRK's Bike Shop</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: one readable column; a bike-build "workflow" strip, the catalogue, a live receipt builder, then the code. */
+:root {
+  --bg: #f3f5f7;
+  --surface: #ffffff;
+  --ink: #18222d;
+  --muted: #5a6673;
+  --line: #d9dfe5;
+  --accent: #0d7a8a;
+  --accent-soft: #dcf0f2;
+  --paper: #fffdf7;
+  --paper-ink: #2a2a2a;
+  --code-bg: #e9edf1;
+  --display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --body: "Inter", "Segoe UI", system-ui, sans-serif;
+  --mono: "JetBrains Mono", Consolas, "Courier New", monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #11171d; --surface: #19222b; --ink: #e6ecf1; --muted: #9aa7b3; --line: #2b3742;
+    --accent: #4cc3d2; --accent-soft: #163a40; --paper: #f4f1e8; --paper-ink: #222;
+    --code-bg: #0d1318; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #11171d; --surface: #19222b; --ink: #e6ecf1; --muted: #9aa7b3; --line: #2b3742;
+  --accent: #4cc3d2; --accent-soft: #163a40; --paper: #f4f1e8; --paper-ink: #222;
+  --code-bg: #0d1318; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font-family: var(--body); font-size: 16px; line-height: 1.6; }
+.wrap { max-width: 880px; margin: 0 auto; padding-block: 48px 72px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: flex; flex-direction: column; gap: 56px; }
+h1, h2, h3 { font-family: var(--display); line-height: 1.15; text-wrap: balance; margin: 0; }
+h1 { font-size: clamp(2.2rem, 6vw, 3.4rem); font-weight: 800; letter-spacing: -0.02em; }
+h2 { font-size: 1.6rem; font-weight: 800; }
+h3 { font-size: 1.05rem; font-weight: 600; }
+p { margin: 0; max-width: 65ch; }
+.eyebrow { font-family: var(--mono); font-size: 0.78rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--accent); }
+section { display: flex; flex-direction: column; gap: 18px; }
+.lead { font-size: 1.12rem; color: var(--muted); }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip { font-family: var(--mono); font-size: 0.8rem; padding: 4px 10px; border-radius: 999px; background: var(--accent-soft); color: var(--ink); }
+code { font-family: var(--mono); font-size: 0.88em; background: var(--code-bg); padding: 1px 5px; border-radius: 4px; }
+
+/* Workflow strip */
+.flow { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; list-style: none; padding: 0; margin: 0; counter-reset: step; }
+.flow li { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px; display: flex; flex-direction: column; gap: 4px; counter-increment: step; min-width: 0; }
+.flow li::before { content: "Step " counter(step); font-family: var(--mono); font-size: 0.72rem; color: var(--accent); letter-spacing: 0.06em; text-transform: uppercase; }
+.flow b { font-family: var(--display); font-size: 1rem; }
+.flow span { font-size: 0.86rem; color: var(--muted); }
+@media (max-width: 720px) { .flow { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 420px) { .flow { grid-template-columns: 1fr; } }
+
+/* Skills list */
+.skills { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 28px; margin: 0; padding: 0; list-style: none; }
+.skills li { display: flex; flex-direction: column; gap: 2px; padding-top: 12px; border-top: 1px solid var(--line); min-width: 0; }
+.skills span { color: var(--muted); font-size: 0.92rem; }
+@media (max-width: 600px) { .skills { grid-template-columns: 1fr; } }
+
+/* Builder */
+.builder { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 24px; align-items: start; }
+@media (max-width: 720px) { .builder { grid-template-columns: 1fr; } }
+.picker { display: flex; flex-direction: column; gap: 20px; }
+fieldset { border: 0; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 8px; }
+legend { font-family: var(--display); font-weight: 600; margin-bottom: 6px; }
+.opts { display: flex; flex-wrap: wrap; gap: 6px; }
+.opts label { cursor: pointer; }
+.opts input { position: absolute; opacity: 0; pointer-events: none; }
+.opts .o { display: inline-flex; gap: 8px; align-items: baseline; padding: 6px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); font-size: 0.9rem; transition: border-color .15s, background .15s; }
+.opts .o small { font-family: var(--mono); color: var(--muted); font-size: 0.78rem; font-variant-numeric: tabular-nums; }
+.opts input:checked + .o { border-color: var(--accent); background: var(--accent-soft); }
+.opts input:focus-visible + .o { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.receipt { background: var(--paper); color: var(--paper-ink); font-family: var(--mono); font-size: 0.82rem; line-height: 1.55;
+  padding: 22px 20px 26px; border-radius: 4px; box-shadow: 0 1px 0 rgba(0,0,0,.06), 0 10px 30px -12px rgba(0,0,0,.35);
+  white-space: pre; overflow-x: auto; tab-size: 8; position: relative; margin: 0; }
+.receipt-cap { font-size: 0.82rem; color: var(--muted); margin-top: 8px; }
+.receipt-cap code { background: transparent; padding: 0; }
+
+/* Terminal: always dark, like a real console, in both themes */
+.run { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); gap: 24px; align-items: start; }
+@media (max-width: 760px) { .run { grid-template-columns: minmax(0, 1fr); } }
+.term-win { border-radius: 10px; overflow: hidden; border: 1px solid #26313b; background: #0f151b; box-shadow: 0 10px 30px -14px rgba(0,0,0,.45); min-width: 0; }
+.term-bar { display: flex; align-items: center; gap: 10px; padding: 8px 12px; background: #1b242d; color: #9fb0bf; font-family: var(--mono); font-size: 0.76rem; }
+.term-bar .dots { display: flex; gap: 6px; }
+.term-bar .dots i { width: 10px; height: 10px; border-radius: 50%; background: #3a4855; display: block; }
+.term-bar .name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.term-btn { font: inherit; font-family: var(--body); font-weight: 600; font-size: 0.8rem; color: #0f151b; background: #4cc3d2; border: 0; border-radius: 6px; padding: 5px 12px; cursor: pointer; }
+.term-btn:hover { filter: brightness(1.08); }
+.term-btn:focus-visible { outline: 2px solid #e6ecf1; outline-offset: 2px; }
+.term { height: 400px; overflow: auto; padding: 14px 16px; margin: 0; color: #d7e1ea; font-family: var(--mono); font-size: 0.82rem; line-height: 1.55; white-space: pre-wrap; word-break: break-word; tab-size: 8; cursor: text; }
+.term .sys { color: #7f93a5; }
+.term .err { color: #ff8f8f; }
+.term input { font: inherit; color: #ffffff; background: transparent; border: 0; outline: 0; padding: 0; margin: 0; width: 14ch; caret-color: #4cc3d2; }
+.term input:disabled { display: none; }
+.run-side { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.run-side h3 { font-family: var(--mono); font-size: 0.85rem; font-weight: 600; }
+.hint { font-size: 0.88rem; color: var(--muted); }
+.hint kbd { font-family: var(--mono); font-size: 0.8rem; background: var(--code-bg); border-radius: 4px; padding: 0 5px; }
+
+/* Code */
+pre.code { background: var(--code-bg); border: 1px solid var(--line); border-radius: 10px; padding: 16px 18px; margin: 0; overflow-x: auto;
+  font-family: var(--mono); font-size: 0.82rem; line-height: 1.55; }
+.snips { display: flex; flex-direction: column; gap: 22px; }
+.snip { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+details { border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+summary { cursor: pointer; padding: 14px 18px; font-weight: 600; }
+summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 10px; }
+details pre.code { border: 0; border-top: 1px solid var(--line); border-radius: 0 0 10px 10px; }
+
+.improve { margin: 0; padding-left: 1.2em; display: flex; flex-direction: column; gap: 8px; max-width: 65ch; }
+footer { color: var(--muted); font-size: 0.85rem; border-top: 1px solid var(--line); padding-top: 18px; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="wrap">
+
+  <header style="display:flex;flex-direction:column;gap:16px;">
+    <div class="eyebrow">Computer Programming · Python project</div>
+    <h1>SRK's Bike Shop</h1>
+    <p class="lead">A text-based ordering program for a bike shop. The customer builds a bike by choosing a frame, a colour and an accessory. The program then adds up the price and prints a receipt to a text file.</p>
+    <div class="chips">
+      <span class="chip">Python 3</span>
+      <span class="chip">Runs in the terminal</span>
+      <span class="chip">true_project.py</span>
+      <span class="chip">info.txt</span>
+    </div>
+  </header>
+
+  <section>
+    <div class="eyebrow">How it works</div>
+    <h2>From menu to receipt</h2>
+    <ol class="flow">
+      <li><b>Main menu</b><span>Contact Us, About Us, or Order Now</span></li>
+      <li><b>Frame</b><span>Pick 1 of 4, then confirm with Y/N</span></li>
+      <li><b>Colour</b><span>Pick 1 of 7, then confirm</span></li>
+      <li><b>Accessory</b><span>Pick 1 of 5, then confirm</span></li>
+      <li><b>Receipt</b><span>Total shown on screen and saved to info.txt</span></li>
+    </ol>
+    <p>The program has two files. <code>true_project.py</code> is the program itself. <code>info.txt</code> is the receipt it writes after each order.</p>
+  </section>
+
+  <section>
+    <div class="eyebrow">Try it</div>
+    <h2>Build a bike</h2>
+    <p>Choose parts below to see the receipt the program would write. The parts already selected are the real order saved in <code>info.txt</code>.</p>
+    <div class="builder">
+      <form class="picker" id="picker">
+        <fieldset id="fs-frames"><legend>Frame</legend><div class="opts"></div></fieldset>
+        <fieldset id="fs-colours"><legend>Colour</legend><div class="opts"></div></fieldset>
+        <fieldset id="fs-accessories"><legend>Accessory</legend><div class="opts"></div></fieldset>
+      </form>
+      <div>
+        <pre class="receipt" id="receipt" aria-live="polite"></pre>
+        <p class="receipt-cap">Same layout as <code>info.txt</code>. Prices are in THB.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="eyebrow">Run the real thing</div>
+    <h2>Play with the Python script</h2>
+    <p>This terminal runs the actual <code>true_project.py</code>, unchanged, with real Python in your browser. Type your answers and press <kbd>Enter</kbd>, just like in a real terminal.</p>
+    <div class="run">
+      <div class="term-win">
+        <div class="term-bar">
+          <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
+          <span class="name">python true_project.py</span>
+          <button class="term-btn" id="term-run" type="button">Start</button>
+        </div>
+        <div class="term" id="term" role="log" aria-live="polite"><span id="term-out"><span class="sys">Press Start to run the program. Python loads the first time (about 10 MB).</span>
+</span><input id="term-in" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="Type your answer and press Enter" disabled></div>
+      </div>
+      <div class="run-side">
+        <h3>info.txt</h3>
+        <pre class="receipt" id="term-file">(empty until the order
+is finished)</pre>
+        <p class="hint">Try a wrong number, a lowercase <kbd>y</kbd>, or option <kbd>5</kbd> on the frame list to see the checks in the code.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="eyebrow">What I practised</div>
+    <h2>Skills used</h2>
+    <ul class="skills">
+      <li><h3>Lists of dictionaries</h3><span>Each product is a dictionary with an ID, name, price and currency, grouped into lists.</span></li>
+      <li><h3>Functions</h3><span><code>print_list</code>, <code>print_order</code>, <code>write_texts</code> and <code>order_confirm</code> split the work into small parts.</span></li>
+      <li><h3>Loops and conditions</h3><span><code>while True</code> keeps asking until the customer enters a valid choice and confirms it.</span></li>
+      <li><h3>Input checking</h3><span>Wrong menu numbers and answers other than Y/N show a message and ask again.</span></li>
+      <li><h3>Error handling</h3><span><code>try / except</code> catches options 5 to 7 when a list has fewer items, and prints "Out of Range".</span></li>
+      <li><h3>Writing files</h3><span>The order is written line by line to <code>info.txt</code>, which works as the receipt.</span></li>
+    </ul>
+  </section>
+
+  <section>
+    <div class="eyebrow">Inside the code</div>
+    <h2>Key parts</h2>
+    <div class="snips">
+      <div class="snip">
+        <h3>Storing the products</h3>
+        <p>Every item has the same four fields, so one function can print any list.</p>
+<pre class="code">frames = [{"ID" : "[1]", "item" : "Titanium", "price" : "6500", "currency" : "THB"},
+          {"ID" : "[2]", "item" : "Steel", "price" : "5750", "currency" : "THB"},
+          ...]
+
+def print_list(input_list):
+    for item in input_list:
+        print(item['ID'], item['item'], item['price'], item['currency'])</pre>
+      </div>
+      <div class="snip">
+        <h3>Confirming a choice</h3>
+        <p>After a pick, the customer types Y to confirm. The price is added to the total and the item is written to the receipt.</p>
+<pre class="code">confirm = input("Confirm your selection? (Y/N):")
+if confirm == 'Y':
+    price_type += (float(list[0]['price']))
+    write_texts(list,1)
+    price.append(price_type)
+    break</pre>
+      </div>
+      <div class="snip">
+        <h3>Writing the receipt</h3>
+        <p>The three choices are added up and the total is saved at the bottom of <code>info.txt</code>.</p>
+<pre class="code">order_confirm(frames)
+order_confirm(colours)
+order_confirm(accessories)
+total = sum(price)
+write_file.writelines(f"\nYour total price is: {total} THB\n...")
+write_file.close()</pre>
+      </div>
+    </div>
+    <details>
+      <summary>Show the full program (true_project.py)</summary>
+<pre class="code" id="fullsrc">import os
+
+colours = [{"ID" : "[1]", "item" : "White", "price" : "700", "currency" : "THB"},
+           {"ID" : "[2]", "item" : "Blue", "price" : "600", "currency" : "THB"},
+           {"ID" : "[3]", "item" : "Yellow", "price" : "600", "currency" : "THB"},
+           {"ID" : "[4]", "item" : "Black", "price" : "550", "currency" : "THB"},
+           {"ID" : "[5]", "item" : "Red", "price" : "500", "currency" : "THB"},
+           {"ID" : "[6]", "item" : "Cyan", "price" : "450", "currency" : "THB"},
+           {"ID" : "[7]", "item" : "Pink", "price" : "1200", "currency" : "THB"}]
+
+frames = [{"ID" : "[1]", "item" : "Titanium", "price" : "6500", "currency" : "THB"},
+          {"ID" : "[2]", "item" : "Steel", "price" : "5750", "currency" : "THB"},
+          {"ID" : "[3]", "item" : "Carbon Fiber", "price" : "5500", "currency" : "THB"},
+          {"ID" : "[4]", "item" : "Aluminum", "price" : "5000", "currency" : "THB"}]
+
+accessories = [{"ID" : "[1]", "item" : "Headlight", "price" : "500", "currency" : "THB"},
+               {"ID" : "[2]", "item" : "Bottle Holder", "price" : "300", "currency" : "THB"},
+               {"ID" : "[3]", "item" : "Bell", "price" : "200", "currency" : "THB"},
+               {"ID" : "[4]", "item" : "Chibi CEO's keychain", "price" : "200", "currency" : "THB"},
+               {"ID" : "[5]", "item" : "No Accessory", "price" : "0", "currency" : "THB"}]
+
+price = []
+def print_list(input_list):
+    for item in input_list:
+        print(item['ID'], item['item'], item['price'], item['currency'])
+def print_order(input,num):
+    print(input[num-1]['ID'], input[num-1]['item'], input[num-1]['price'], input[num-1]['currency'])
+def write_texts(input,num):
+    write_file.writelines("\t".join((input[num-1]['ID'], input[num-1]['item'], input[num-1]['price'])))
+def order_confirm(list):
+    price_type = 0
+    while True:
+        print_list(list)
+        print("=" * 20)
+        user = input("Please select your option: ")
+        if user == "1":
+            print("-" * 20)
+            print_order(list,1)
+            print("-" * 20)
+            confirm = input("Confirm your selection? (Y/N):")
+            if confirm == 'Y':
+                price_type += (float(list[0]['price']))
+                write_texts(list,1)
+                price.append(price_type)
+                print("=" * 20)
+                break
+            elif confirm == 'N':
+                print("=" * 20)
+            else:
+                print("Please enter correct promt.(Case sensitive)")
+                print("=" * 20)
+        # Options "2" to "4" repeat the same steps for list[1] to list[3].
+        elif user == "5":
+            try:
+                print("=" * 20)
+                print_order(list,5)
+                print("=" * 20)
+            except Exception:
+                print("Out of Range")
+                print("-" * 20)
+            else:
+                confirm = input("Confirm your selection? (Y/N):")
+                if confirm == 'Y':
+                    price_type += (float(list[4]['price']))
+                    write_texts(list,5)
+                    price.append(price_type)
+                    print("=" * 20)
+                    break
+                elif confirm == 'N':
+                    print("=" * 20)
+                else:
+                    print("Please enter correct promt.(Case sensitive)")
+                    print("=" * 20)
+        # Options "6" and "7" repeat the same steps for list[5] and list[6].
+        else:
+            print("=" * 20)
+            print("Please enter correct action number.")
+            print("=" * 20)
+
+write_file = open("./info.txt", "w")
+write_file.writelines("ID\t\titem\t\tprice\n")
+
+print("Welcome to SRK's Bike Shop!")
+print("=" * 20)
+while True:
+    print("[1] Contact Us")
+    print("[2] About Us")
+    print("[3] Order Now")
+    print("=" * 20)
+    user = input("Please choose your action: ")
+    if user == "1":
+        print("=" * 20)
+        print("Tel: 076543210")
+        print("Email: srk@bluearchive.kvt")
+        print("Avaliable Time: 08:00 - 20:00")
+        print("=" * 20)
+    elif user == "2":
+        print("=" * 20)
+        print("We are SRK's Bike Shop.")
+        print("SRK stands for 'Shiroko', our beloved founder from Abydos School, Kivotos.")
+        print("=" * 20)
+    elif user == "3":
+        print("=" * 20)
+        break
+    else:
+        print("=" * 20)
+        print("Please enter correct action number.")
+        print("=" * 20)
+
+order_confirm(frames)
+write_file.writelines("\n")
+order_confirm(colours)
+write_file.writelines("\n")
+order_confirm(accessories)
+total = sum(price)
+print("Your total price is:",total,"    THB")
+print("Thank you for purchasing!")
+print("-" * 20)
+write_file.writelines("\n===================================")
+write_file.writelines(f"\nYour total price is: {total} THB\n------------------------------\nThank you for purchasing!")
+write_file.close()</pre>
+    </details>
+    <p style="font-size:0.88rem;color:var(--muted);">Options 2–4 and 6–7 are shortened above with comments because they repeat the same steps as options 1 and 5.</p>
+  </section>
+
+  <section>
+    <div class="eyebrow">Next steps</div>
+    <h2>What I would improve</h2>
+    <ul class="improve">
+      <li>Replace the seven repeated <code>if user == "1"</code> … <code>"7"</code> blocks with one block that turns the input into a number and checks it against the list length.</li>
+      <li>Accept a lowercase <code>y</code> or <code>n</code> as well, so the confirm step is not case sensitive.</li>
+      <li>Save each receipt under its own name, such as a timestamp, so a new order doesn't overwrite the old one.</li>
+      <li>Use <code>with open(...)</code> so the file always closes, even if the program stops early.</li>
+    </ul>
+  </section>
+
+  <footer>SRK's Bike Shop · Python coursework project</footer>
+</div>
+
+<script>
+const DATA = {
+  frames: [["[1]","Titanium",6500],["[2]","Steel",5750],["[3]","Carbon Fiber",5500],["[4]","Aluminum",5000]],
+  colours: [["[1]","White",700],["[2]","Blue",600],["[3]","Yellow",600],["[4]","Black",550],["[5]","Red",500],["[6]","Cyan",450],["[7]","Pink",1200]],
+  accessories: [["[1]","Headlight",500],["[2]","Bottle Holder",300],["[3]","Bell",200],["[4]","Chibi CEO's keychain",200],["[5]","No Accessory",0]]
+};
+const DEFAULTS = { frames: 0, colours: 6, accessories: 3 };
+for (const key of Object.keys(DATA)) {
+  const box = document.querySelector("#fs-" + key + " .opts");
+  DATA[key].forEach((row, i) => {
+    const label = document.createElement("label");
+    const input = document.createElement("input");
+    input.type = "radio"; input.name = key; input.value = i; input.id = key + "-" + i;
+    if (i === DEFAULTS[key]) input.checked = true;
+    const span = document.createElement("span");
+    span.className = "o";
+    span.textContent = row[1] + " ";
+    const sm = document.createElement("small");
+    sm.textContent = row[2];
+    span.appendChild(sm);
+    label.append(input, span);
+    box.appendChild(label);
+  });
+}
+function render() {
+  const lines = ["ID\t\titem\t\tprice"];
+  let total = 0;
+  for (const key of Object.keys(DATA)) {
+    const i = +document.querySelector('input[name="' + key + '"]:checked').value;
+    const [id, name, p] = DATA[key][i];
+    lines.push(id + "\t" + name + "\t" + p);
+    total += p;
+  }
+  lines.push("===================================");
+  lines.push("Your total price is: " + total.toFixed(1) + " THB");
+  lines.push("------------------------------");
+  lines.push("Thank you for purchasing!");
+  document.getElementById("receipt").textContent = lines.join("\n");
+}
+document.getElementById("picker").addEventListener("change", render);
+render();
+</script>
+
+<script type="text/plain" id="py-src">
+import os
+
+colours = [{"ID" : "[1]", "item" : "White", "price" : "700", "currency" : "THB"},
+           {"ID" : "[2]", "item" : "Blue", "price" : "600", "currency" : "THB"},
+           {"ID" : "[3]", "item" : "Yellow", "price" : "600", "currency" : "THB"},
+           {"ID" : "[4]", "item" : "Black", "price" : "550", "currency" : "THB"},
+           {"ID" : "[5]", "item" : "Red", "price" : "500", "currency" : "THB"},
+           {"ID" : "[6]", "item" : "Cyan", "price" : "450", "currency" : "THB"},
+           {"ID" : "[7]", "item" : "Pink", "price" : "1200", "currency" : "THB"}]
+
+frames = [{"ID" : "[1]", "item" : "Titanium", "price" : "6500", "currency" : "THB"},
+          {"ID" : "[2]", "item" : "Steel", "price" : "5750", "currency" : "THB"},
+          {"ID" : "[3]", "item" : "Carbon Fiber", "price" : "5500", "currency" : "THB"},
+          {"ID" : "[4]", "item" : "Aluminum", "price" : "5000", "currency" : "THB"}]
+
+accessories = [{"ID" : "[1]", "item" : "Headlight", "price" : "500", "currency" : "THB"},
+               {"ID" : "[2]", "item" : "Bottle Holder", "price" : "300", "currency" : "THB"},
+               {"ID" : "[3]", "item" : "Bell", "price" : "200", "currency" : "THB"},
+               {"ID" : "[4]", "item" : "Chibi CEO's keychain", "price" : "200", "currency" : "THB"},
+               {"ID" : "[5]", "item" : "No Accessory", "price" : "0", "currency" : "THB"}]
+
+# Rest now my children.
+# For you all have done your part.
+
+# def print_colours(input_list):
+#     for item in input_list:
+#         print(item['ID'], item['colour'], item['price'], item['currency'])
+
+# def print_frames(input_list):
+#     for item in input_list:
+#         print(item['ID'], item['frame'], item['price'], item['currency'])
+price = []
+def print_list(input_list):
+    for item in input_list:
+        print(item['ID'], item['item'], item['price'], item['currency'])
+def print_order(input,num):
+    print(input[num-1]['ID'], input[num-1]['item'], input[num-1]['price'], input[num-1]['currency'])
+def write_texts(input,num):
+    write_file.writelines("\t".join((input[num-1]['ID'], input[num-1]['item'], input[num-1]['price'])))
+def order_confirm(list):
+    price_type = 0
+    while True:
+        print_list(list)
+        print("=" * 20)
+        user = input("Please select your option: ")
+        if user == "1":
+            print("-" * 20)
+            print_order(list,1)
+            print("-" * 20)
+            confirm = input("Confirm your selection? (Y/N):")
+            if confirm == 'Y':
+                price_type += (float(list[0]['price']))
+                write_texts(list,1)
+                price.append(price_type)
+                print("=" * 20)
+                break
+            elif confirm == 'N':
+                print("=" * 20)
+            else:
+                print("Please enter correct promt.(Case sensitive)")
+                print("=" * 20)
+        elif user == "2":
+            print("-" * 20)
+            print_order(list,2)
+            print("-" * 20)
+            confirm = input("Confirm your selection? (Y/N):")
+            if confirm == 'Y':
+                price_type += (float(list[1]['price']))
+                write_texts(list,2)
+                price.append(price_type)
+                print("=" * 20)
+                break
+            elif confirm == 'N':
+                print("=" * 20)
+            else:
+                print("Please enter correct promt.(Case sensitive)")
+                print("=" * 20)
+        elif user == "3":
+            print("-" * 20)
+            print_order(list,3)
+            print("-" * 20)
+            confirm = input("Confirm your selection? (Y/N):")
+            if confirm == 'Y':
+                price_type += (float(list[2]['price']))
+                write_texts(list,3)
+                price.append(price_type)
+                print("=" * 20)
+                break
+            elif confirm == 'N':
+                print("=" * 20)
+            else:
+                print("Please enter correct promt.(Case sensitive)")
+                print("=" * 20)
+        elif user == "4":
+            print("-" * 20)
+            print_order(list,4)
+            print("-" * 20)
+            confirm = input("Confirm your selection? (Y/N):")
+            if confirm == 'Y':
+                price_type += (float(list[3]['price']))
+                write_texts(list,4)
+                price.append(price_type)
+                print("=" * 20)
+                break
+            elif confirm == 'N':
+                print("=" * 20)
+            else:
+                print("Please enter correct promt.(Case sensitive)")
+                print("=" * 20)
+        elif user == "5":
+            try:
+                print("=" * 20)
+                print_order(list,5)
+                print("=" * 20)
+            except Exception:
+                print("Out of Range")
+                print("-" * 20)
+            else:
+                confirm = input("Confirm your selection? (Y/N):")
+                if confirm == 'Y':
+                    price_type += (float(list[4]['price']))
+                    write_texts(list,5)
+                    price.append(price_type)
+                    print("=" * 20)
+                    break
+                elif confirm == 'N':
+                    print("=" * 20)
+                else:
+                    print("Please enter correct promt.(Case sensitive)")
+                    print("=" * 20)
+        elif user == "6":
+            try:
+                print("=" * 20)
+                print_order(list,6)
+                print("=" * 20)
+            except Exception:
+                print("Out of Range")
+                print("-" * 20)
+            else:
+                confirm = input("Confirm your selection? (Y/N):")
+                if confirm == 'Y':
+                    price_type += (float(list[5]['price']))
+                    write_texts(list,6)
+                    price.append(price_type)
+                    print("=" * 20)
+                    break
+                elif confirm == 'N':
+                    print("=" * 20)
+                else:
+                    print("Please enter correct promt.(Case sensitive)")
+                    print("=" * 20)
+        elif user == "7":
+            try:
+                print("=" * 20)
+                print_order(list,7)
+                print("=" * 20)
+            except Exception:
+                print("Out of Range")
+                print("-" * 20)
+            else:
+                confirm = input("Confirm your selection? (Y/N):")
+                if confirm == 'Y':
+                    price_type += (float(list[6]['price']))
+                    write_texts(list,7)
+                    price.append(price_type)
+                    print("=" * 20)
+                    break
+                elif confirm == 'N':
+                    print("=" * 20)
+                else:
+                    print("Please enter correct promt.(Case sensitive)")
+                    print("=" * 20)
+        else:
+            print("=" * 20)
+            print("Please enter correct action number.")
+            print("=" * 20)
+
+write_file = open("./info.txt", "w")
+write_file.writelines("ID\t\titem\t\tprice\n")
+
+print("Welcome to SRK's Bike Shop!")
+print("=" * 20)
+while True:
+    print("[1] Contact Us")
+    print("[2] About Us")
+    print("[3] Order Now")
+    print("=" * 20)
+    user = input("Please choose your action: ")
+    if user == "1":
+        print("=" * 20)
+        print("Tel: 076543210")
+        print("Email: srk@bluearchive.kvt")
+        print("Avaliable Time: 08:00 - 20:00")
+        print("=" * 20)
+    elif user == "2":
+        print("=" * 20)
+        print("We are SRK's Bike Shop.")
+        print("SRK stands for 'Shiroko', our beloved founder from Abydos School, Kivotos.")
+        print("=" * 20)
+    elif user == "3":
+        print("=" * 20)
+        break
+    else:
+        print("=" * 20)
+        print("Please enter correct action number.")
+        print("=" * 20)
+
+order_confirm(frames)
+write_file.writelines("\n")
+order_confirm(colours)
+write_file.writelines("\n")
+order_confirm(accessories)
+total = sum(price)
+print("Your total price is:",total,"    THB")
+print("Thank you for purchasing!")
+print("-" * 20)
+write_file.writelines("\n===================================")
+write_file.writelines(f"\nYour total price is: {total} THB\n------------------------------\nThank you for purchasing!")
+write_file.close()
+</script>
+
+<script>
+/* Terminal: runs true_project.py with Pyodide (Python compiled to WebAssembly).
+   input() can't block in a browser, so before running, the script's own functions
+   that ask for input are turned into async functions and input() is awaited.
+   The program's logic and text are not changed. */
+(() => {
+  const PYODIDE = "https://cdn.jsdelivr.net/npm/pyodide@0.26.4/";
+  const term = document.getElementById("term");
+  const out = document.getElementById("term-out");
+  const inp = document.getElementById("term-in");
+  const btn = document.getElementById("term-run");
+  const fileBox = document.getElementById("term-file");
+  let loading = null, pending = null, current = null, runId = 0;
+
+  function write(text, cls) {
+    if (cls) {
+      const s = document.createElement("span");
+      s.className = cls; s.textContent = text; out.appendChild(s);
+    } else {
+      out.appendChild(document.createTextNode(text));
+    }
+    term.scrollTop = term.scrollHeight;
+  }
+
+  function loadScript(src) {
+    return new Promise((res, rej) => {
+      const s = document.createElement("script");
+      s.src = src; s.onload = res; s.onerror = () => rej(new Error("Could not load " + src));
+      document.head.appendChild(s);
+    });
+  }
+
+  function getPython() {
+    if (!loading) {
+      loading = (async () => {
+        await loadScript(PYODIDE + "pyodide.js");
+        const py = await loadPyodide({ indexURL: PYODIDE });
+        const dec = new TextDecoder();
+        py.setStdout({ write: (buf) => { write(dec.decode(buf, { stream: true })); return buf.length; } });
+        py.setStderr({ write: (buf) => { write(dec.decode(buf, { stream: true }), "err"); return buf.length; } });
+        return py;
+      })();
+      loading.catch(() => { loading = null; });
+    }
+    return loading;
+  }
+
+  window.bikeReadLine = () => new Promise((resolve, reject) => {
+    pending = { resolve, reject };
+    inp.disabled = false;
+    inp.value = "";
+    inp.focus({ preventScroll: true });
+    term.scrollTop = term.scrollHeight;
+  });
+
+  inp.addEventListener("keydown", (e) => {
+    if (e.key !== "Enter" || !pending) return;
+    e.preventDefault();
+    const value = inp.value;
+    const p = pending; pending = null;
+    inp.disabled = true;
+    write(value + "\n");
+    p.resolve(value);
+  });
+  term.addEventListener("click", () => { if (!inp.disabled) inp.focus({ preventScroll: true }); });
+
+  const RUNNER = `
+import ast, sys, js
+
+src = js.document.getElementById("py-src").textContent
+tree = ast.parse(src, "true_project.py")
+
+def calls(node, names):
+    return any(isinstance(n, ast.Call) and isinstance(n.func, ast.Name) and n.func.id in names
+               for n in ast.walk(node))
+
+funcs = [n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef)]
+waiting = {"input"}
+changed = True
+while changed:
+    changed = False
+    for f in funcs:
+        if f.name not in waiting and calls(f, waiting):
+            waiting.add(f.name); changed = True
+
+class Asyncify(ast.NodeTransformer):
+    def visit_FunctionDef(self, node):
+        self.generic_visit(node)
+        if node.name in waiting:
+            return ast.copy_location(ast.AsyncFunctionDef(**{k: getattr(node, k) for k in node._fields}), node)
+        return node
+    def visit_Call(self, node):
+        self.generic_visit(node)
+        if isinstance(node.func, ast.Name) and node.func.id in waiting:
+            return ast.copy_location(ast.Await(node), node)
+        return node
+
+tree = ast.fix_missing_locations(Asyncify().visit(tree))
+code = compile(tree, "true_project.py", "exec", flags=ast.PyCF_ALLOW_TOP_LEVEL_AWAIT)
+
+async def _input(prompt=""):
+    sys.stdout.write(str(prompt))
+    sys.stdout.flush()
+    return await js.bikeReadLine()
+
+g = {"__name__": "__main__", "input": _input}
+result = eval(code, g)
+if result is not None:
+    await result
+sys.stdout.flush()
+`;
+
+  async function run() {
+    const id = ++runId;
+    btn.textContent = "Run again";
+    if (pending) { const p = pending; pending = null; p.reject(new Error("restart")); }
+    inp.disabled = true;
+    if (current) await current.catch(() => {});
+    if (id !== runId) return;
+    out.textContent = "";
+    fileBox.textContent = "(empty until the order\nis finished)";
+    let py;
+    try {
+      if (!loading) write("Loading Python…\n", "sys");
+      py = await getPython();
+    } catch (err) {
+      write("Python couldn't load in this browser. The receipt builder above still shows how the program works.\n", "err");
+      return;
+    }
+    if (id !== runId) return;
+    if (out.textContent.startsWith("Loading")) out.textContent = "";
+    write("$ python true_project.py\n", "sys");
+    current = py.runPythonAsync(RUNNER);
+    try {
+      await current;
+      if (id !== runId) return;
+      write("\n[Program finished. Press Run again to place another order.]\n", "sys");
+      try { fileBox.textContent = py.runPython("open('info.txt').read()"); } catch (e) {}
+    } catch (err) {
+      if (id !== runId) return;
+      const msg = String(err && err.message || err);
+      const lines = msg.trim().split("\n");
+      const at = lines.findIndex(l => l.includes('File "true_project.py"'));
+      write("\n" + (at >= 0 ? "Traceback (most recent call last):\n" + lines.slice(at).join("\n") : lines.slice(-1)[0]) + "\n", "err");
+    } finally {
+      if (id === runId) current = null;
+    }
+  }
+
+  btn.addEventListener("click", run);
+})();
+</script>
+</body>
+</html>

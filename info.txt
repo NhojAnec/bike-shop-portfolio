@@ -1,0 +1,8 @@
+ID		item		price
+[1]	Titanium	6500
+[7]	Pink	1200
+[4]	Chibi CEO's keychain	200
+===================================
+Your total price is: 7900.0 THB
+------------------------------
+Thank you for purchasing!
